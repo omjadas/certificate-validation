@@ -95,14 +95,36 @@ int validate_domain(X509 *cert, char *url) {
 }
 
 int validate_san(X509 *cert, char *url) {
-    int valid = 1;
-    // int alt_name = X509_get_ext_by_NID(cert, NID_subject_alt_name, -1);
-    // if (alt_name > 0) {
-    //     X509_EXTENSION *ex = X509_get_ext(cert, alt_name);
-    //     ASN1_OCTET_STRING *obj = X509_EXTENSION_get_data(ex);
-    //     printf("Extension:%s\n", ASN1_STRING_data(obj));
-    // }
-    return valid;
+    int alt_name = X509_get_ext_by_NID(cert, NID_subject_alt_name, -1);
+    X509_EXTENSION *ex = X509_get_ext(cert, alt_name);
+    if (alt_name > 0) {
+        BUF_MEM *bptr = NULL;
+        char *buf = NULL;
+
+        BIO *bio = BIO_new(BIO_s_mem());
+        if (!X509V3_EXT_print(bio, ex, 0, 0)) {
+            fprintf(stderr, "Error in reading extensions");
+        }
+        BIO_flush(bio);
+        BIO_get_mem_ptr(bio, &bptr);
+
+        // bptr->data is not NULL terminated - add null character
+        buf = (char *)malloc((bptr->length + 1) * sizeof(char));
+        memcpy(buf, bptr->data, bptr->length);
+        buf[bptr->length] = '\0';
+
+        // Can print or parse value
+        char *token = strtok(buf, ", DNS:");
+        while (token) {
+            if (match(token, url) == 1) {
+                return 1;
+            }
+            token = strtok(NULL, ", DNS:");
+        }
+        return 0;
+    } else {
+        return 1;
+    }
 }
 
 int validate_cn(X509 *cert, char *url) {
@@ -147,6 +169,9 @@ int match(char *str1, char *str2) {
                 token1 = strtok_r(NULL, ".", &save_ptr1);
                 token2 = strtok_r(NULL, ".", &save_ptr2);
             }
+        }
+        if (token1 || token2) {
+            return 0;
         }
     } else {
         if (strcmp(str1, str2) != 0) {
