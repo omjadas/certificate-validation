@@ -1,6 +1,8 @@
 #include <openssl/bio.h>
 #include <openssl/err.h>
+#include <openssl/evp.h>
 #include <openssl/pem.h>
+#include <openssl/rsa.h>
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 #include <stdio.h>
@@ -9,7 +11,7 @@
 
 int validate(char *, char *);
 int validate_dates(X509 *);
-int validate_domain(X509 *);
+int validate_domain(X509 *, char *);
 int validate_key_length(X509 *);
 int validate_key_usage(X509 *);
 
@@ -59,7 +61,7 @@ int validate(char *certificate, char *url) {
     // cert contains the x509 certificate and can be used to analyse the
     // certificate
 
-    if (validate_dates(cert) == 0 || validate_domain(cert) == 0 ||
+    if (validate_dates(cert) == 0 || validate_domain(cert, url) == 0 ||
         validate_key_length(cert) == 0 || validate_key_usage(cert) == 0) {
         valid = 0;
     }
@@ -83,12 +85,21 @@ int validate_dates(X509 *cert) {
     return 1;
 }
 
-int validate_domain(X509 *cert) {
+int validate_domain(X509 *cert, char *url) {
     return 1;
 }
 
 int validate_key_length(X509 *cert) {
-    return 1;
+    int valid = 1;
+    EVP_PKEY *key = X509_get_pubkey(cert);
+    RSA *rsa_key = EVP_PKEY_get1_RSA(key);
+
+    if ((RSA_size(rsa_key) * 8) < 2048) {
+        valid = 0;
+    }
+    RSA_free(rsa_key);
+    EVP_PKEY_free(key);
+    return valid;
 }
 
 int validate_key_usage(X509 *cert) {
