@@ -9,6 +9,9 @@
 
 int validate(char *, char *);
 int validate_dates(X509 *);
+int validate_domain(X509 *);
+int validate_key_length(X509 *);
+int validate_key_usage(X509 *);
 
 int main(int argc, char *argv[]) {
     FILE *in = fopen(argv[1], "r");
@@ -38,6 +41,7 @@ int main(int argc, char *argv[]) {
 int validate(char *certificate, char *url) {
     BIO *certificate_bio = NULL;
     X509 *cert = NULL;
+    int valid = 1;
 
     // create BIO object to read certificate
     certificate_bio = BIO_new(BIO_s_file());
@@ -55,13 +59,14 @@ int validate(char *certificate, char *url) {
     // cert contains the x509 certificate and can be used to analyse the
     // certificate
 
-    if (validate_dates(cert) == 0) {
-        return 0;
+    if (validate_dates(cert) == 0 || validate_domain(cert) == 0 ||
+        validate_key_length(cert) == 0 || validate_key_usage(cert) == 0) {
+        valid = 0;
     }
 
     X509_free(cert);
     BIO_free_all(certificate_bio);
-    return 1;
+    return valid;
 }
 
 int validate_dates(X509 *cert) {
@@ -75,5 +80,17 @@ int validate_dates(X509 *cert) {
     if (pday1 < 0 || psec1 < 0 || pday2 < 0 || psec2 < 0) {
         return 0;
     }
+    return 1;
+}
+
+int validate_domain(X509 *cert) {
+    return 1;
+}
+
+int validate_key_length(X509 *cert) {
+    return 1;
+}
+
+int validate_key_usage(X509 *cert) {
     return 1;
 }
