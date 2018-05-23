@@ -10,7 +10,8 @@
 int validate(char *, char *);
 
 int main(int argc, char *argv[]) {
-    FILE *file = fopen(argv[1], "r");
+    FILE *in = fopen(argv[1], "r");
+    FILE *out = fopen("output.csv", "w");
 
     // initialise openSSL
     OpenSSL_add_all_algorithms();
@@ -19,15 +20,17 @@ int main(int argc, char *argv[]) {
 
     char line[256];
 
-    while (fgets(line, sizeof(line), file)) {
+    while (fgets(line, sizeof(line), in)) {
         strtok(line, "\n");
         char *certificate, *url;
         certificate = strtok(line, ",");
         url = strtok(NULL, ",");
-        validate(certificate, url);
+        fprintf(out, "%s,%s,%d\n", certificate, url,
+                validate(certificate, url));
     }
 
-    fclose(file);
+    fclose(in);
+    fclose(out);
     return 0;
 }
 
