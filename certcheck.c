@@ -1,3 +1,4 @@
+#include <openssl/asn1.h>
 #include <openssl/bio.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
@@ -12,8 +13,12 @@
 int validate(char *, char *);
 int validate_dates(X509 *);
 int validate_domain(X509 *, char *);
+int validate_cn(X509 *, char *);
+int validate_san(X509 *, char *);
 int validate_key_length(X509 *);
 int validate_key_usage(X509 *);
+char *get_common_name(X509 *);
+int match(char *, char *);
 
 int main(int argc, char *argv[]) {
     FILE *in = fopen(argv[1], "r");
@@ -86,7 +91,22 @@ int validate_dates(X509 *cert) {
 }
 
 int validate_domain(X509 *cert, char *url) {
-    return 1;
+    return (validate_cn(cert, url) && validate_san(cert, url));
+}
+
+int validate_san(X509 *cert, char *url) {
+    int valid = 1;
+    // int alt_name = X509_get_ext_by_NID(cert, NID_subject_alt_name, -1);
+    // if (alt_name > 0) {
+    //     X509_EXTENSION *ex = X509_get_ext(cert, alt_name);
+    //     ASN1_OCTET_STRING *obj = X509_EXTENSION_get_data(ex);
+    //     printf("Extension:%s\n", ASN1_STRING_data(obj));
+    // }
+    return valid;
+}
+
+int validate_cn(X509 *cert, char *url) {
+    return match(get_common_name(cert), url);
 }
 
 int validate_key_length(X509 *cert) {
@@ -103,5 +123,43 @@ int validate_key_length(X509 *cert) {
 }
 
 int validate_key_usage(X509 *cert) {
+    int valid = 1;
+    return valid;
+}
+
+int match(char *str1, char *str2) {
+    if (str1[0] == '*') {
+        char *str1_cpy, *str2_cpy;
+        char *save_ptr1, *save_ptr2;
+        char *token1, *token2;
+
+        str1_cpy = strdup(str1);
+        str2_cpy = strdup(str2);
+
+        token1 = strtok_r(str1_cpy, ".", &save_ptr1);
+        token2 = strtok_r(str2_cpy, ".", &save_ptr2);
+        token1 = strtok_r(NULL, ".", &save_ptr1);
+        token2 = strtok_r(NULL, ".", &save_ptr2);
+        while (token1 && token2) {
+            if (strcmp(token1, token2) != 0) {
+                return 0;
+            } else {
+                token1 = strtok_r(NULL, ".", &save_ptr1);
+                token2 = strtok_r(NULL, ".", &save_ptr2);
+            }
+        }
+    } else {
+        if (strcmp(str1, str2) != 0) {
+            return 0;
+        }
+    }
     return 1;
+}
+
+char *get_common_name(X509 *cert) {
+    X509_NAME *subj = X509_get_subject_name(cert);
+    X509_NAME_ENTRY *entry =
+        X509_NAME_get_entry(subj, X509_NAME_entry_count(subj) - 1);
+    ASN1_STRING *domain = X509_NAME_ENTRY_get_data(entry);
+    return ASN1_STRING_data(domain);
 }
