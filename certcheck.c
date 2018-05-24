@@ -24,10 +24,11 @@ char *get_common_name(X509 *);
 int match(char *, char *);
 
 int main(int argc, char *argv[]) {
+    /** Open input and output files */
     FILE *in = fopen(argv[1], "r");
     FILE *out = fopen("output.csv", "w");
 
-    // initialise openSSL
+    /** Initialise openSSL */
     OpenSSL_add_all_algorithms();
     ERR_load_BIO_strings();
     ERR_load_crypto_strings();
@@ -43,6 +44,7 @@ int main(int argc, char *argv[]) {
                 validate(certificate, url));
     }
 
+    /** Close files */
     fclose(in);
     fclose(out);
     return 0;
@@ -61,10 +63,10 @@ int validate(char *certificate, char *url) {
     X509 *cert = NULL;
     int valid = 1;
 
-    // create BIO object to read certificate
+    /** Create BIO object to read certificate */
     certificate_bio = BIO_new(BIO_s_file());
 
-    // Read certificate into BIO
+    /** Read certificate into BIO */
     if (!(BIO_read_filename(certificate_bio, certificate))) {
         fprintf(stderr, "Error in reading cert BIO filename");
         exit(EXIT_FAILURE);
@@ -74,9 +76,10 @@ int validate(char *certificate, char *url) {
         exit(EXIT_FAILURE);
     }
 
-    // cert contains the x509 certificate and can be used to analyse the
-    // certificate
-
+    /**
+     * Cert contains the x509 certificate and can be used to analyse the
+     * certificate
+     * */
     if (validate_dates(cert) == 0 || validate_domain(cert, url) == 0 ||
         validate_key_length(cert) == 0 || validate_key_usage(cert) == 0) {
         valid = 0;
@@ -147,7 +150,7 @@ int validate_cn(X509 *cert, char *url) {
 int validate_san(X509 *cert, char *url) {
     int alt_name = X509_get_ext_by_NID(cert, NID_subject_alt_name, -1);
     X509_EXTENSION *ex = X509_get_ext(cert, alt_name);
-    if (alt_name > 0) {
+    if (alt_name >= 0) {
         BUF_MEM *bptr = NULL;
         char *buf = NULL;
 
@@ -213,27 +216,28 @@ int validate_key_usage(X509 *cert) {
 int validate_ca(X509 *cert) {
     int constraints = X509_get_ext_by_NID(cert, NID_basic_constraints, -1);
     X509_EXTENSION *ex = X509_get_ext(cert, constraints);
-    BUF_MEM *bptr = NULL;
-    char *buf = NULL;
+    if (constraints >= 0) {
+        BUF_MEM *bptr = NULL;
+        char *buf = NULL;
 
-    BIO *bio = BIO_new(BIO_s_mem());
-    if (!X509V3_EXT_print(bio, ex, 0, 0)) {
-        fprintf(stderr, "Error in reading extensions");
-    }
-    BIO_flush(bio);
-    BIO_get_mem_ptr(bio, &bptr);
+        BIO *bio = BIO_new(BIO_s_mem());
+        if (!X509V3_EXT_print(bio, ex, 0, 0)) {
+            fprintf(stderr, "Error in reading extensions");
+        }
+        BIO_flush(bio);
+        BIO_get_mem_ptr(bio, &bptr);
 
-    // bptr->data is not NULL terminated - add null character
-    buf = (char *)malloc((bptr->length + 1) * sizeof(char));
-    memcpy(buf, bptr->data, bptr->length);
-    buf[bptr->length] = '\0';
+        // bptr->data is not NULL terminated - add null character
+        buf = (char *)malloc((bptr->length + 1) * sizeof(char));
+        memcpy(buf, bptr->data, bptr->length);
+        buf[bptr->length] = '\0';
 
-    if (strstr(buf, "CA:TRUE")) {
+        if (strstr(buf, "CA:TRUE")) {
+            free(buf);
+            return 0;
+        }
         free(buf);
-        return 0;
     }
-
-    free(buf);
     return 1;
 }
 
@@ -248,7 +252,7 @@ int validate_ca(X509 *cert) {
 int validate_tls(X509 *cert) {
     int ext_key_usage = X509_get_ext_by_NID(cert, NID_ext_key_usage, -1);
     X509_EXTENSION *ex = X509_get_ext(cert, ext_key_usage);
-    if (ext_key_usage > 0) {
+    if (ext_key_usage >= 0) {
         BUF_MEM *bptr = NULL;
         char *buf = NULL;
 
