@@ -149,14 +149,64 @@ int validate_key_length(X509 *cert) {
 }
 
 int validate_key_usage(X509 *cert) {
-    int valid = 1;
-    return valid;
+    return (validate_ca(cert) && validate_tls(cert));
 }
 
 int validate_ca(X509 *cert) {
+    int constraints = X509_get_ext_by_NID(cert, NID_basic_constraints, -1);
+    X509_EXTENSION *ex = X509_get_ext(cert, constraints);
+    BUF_MEM *bptr = NULL;
+    char *buf = NULL;
+
+    BIO *bio = BIO_new(BIO_s_mem());
+    if (!X509V3_EXT_print(bio, ex, 0, 0)) {
+        fprintf(stderr, "Error in reading extensions");
+    }
+    BIO_flush(bio);
+    BIO_get_mem_ptr(bio, &bptr);
+
+    // bptr->data is not NULL terminated - add null character
+    buf = (char *)malloc((bptr->length + 1) * sizeof(char));
+    memcpy(buf, bptr->data, bptr->length);
+    buf[bptr->length] = '\0';
+
+    if (strstr(buf, "CA:TRUE")) {
+        free(buf);
+        return 0;
+    }
+
+    free(buf);
+    return 1;
 }
 
 int validate_tls(X509 *cert) {
+    int ext_key_usage = X509_get_ext_by_NID(cert, NID_ext_key_usage, -1);
+    X509_EXTENSION *ex = X509_get_ext(cert, ext_key_usage);
+    if (ext_key_usage > 0) {
+        BUF_MEM *bptr = NULL;
+        char *buf = NULL;
+
+        BIO *bio = BIO_new(BIO_s_mem());
+        if (!X509V3_EXT_print(bio, ex, 0, 0)) {
+            fprintf(stderr, "Error in reading extensions");
+        }
+        BIO_flush(bio);
+        BIO_get_mem_ptr(bio, &bptr);
+
+        // bptr->data is not NULL terminated - add null character
+        buf = (char *)malloc((bptr->length + 1) * sizeof(char));
+        memcpy(buf, bptr->data, bptr->length);
+        buf[bptr->length] = '\0';
+
+        if (strstr(buf, "TLS Web Server Authentication")) {
+            free(buf);
+            return 1;
+        }
+        free(buf);
+        return 0;
+    } else {
+        return 1;
+    }
 }
 
 int match(char *str1, char *str2) {
