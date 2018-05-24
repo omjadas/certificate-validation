@@ -263,20 +263,22 @@ int validate_tls(X509 *cert) {
         BIO_flush(bio);
         BIO_get_mem_ptr(bio, &bptr);
 
-        // bptr->data is not NULL terminated - add null character
+        /** bptr->data is not NULL terminated - add null character */
         buf = (char *)malloc((bptr->length + 1) * sizeof(char));
         memcpy(buf, bptr->data, bptr->length);
         buf[bptr->length] = '\0';
 
+        /**
+         * Checks whether the substring "TLS Web Server Authentication" is
+         * contained within the buffer
+         */
         if (strstr(buf, "TLS Web Server Authentication")) {
             free(buf);
             return 1;
         }
         free(buf);
-        return 0;
-    } else {
-        return 1;
     }
+    return 0;
 }
 
 /**
@@ -289,18 +291,28 @@ int validate_tls(X509 *cert) {
  * @return      1 if the strings match, 0 otherwise
  */
 int match(char *str1, char *str2) {
+    /**
+     * Checks whether the first value of str1 is a wildcard, if it is not the
+     * two domains are tested for simple equality
+     */
     if (str1[0] == '*') {
         char *str1_cpy, *str2_cpy;
         char *save_ptr1, *save_ptr2;
         char *token1, *token2;
 
+        /** Duplicate the input strings */
         str1_cpy = strdup(str1);
         str2_cpy = strdup(str2);
 
+        /** Create the tokens for both strings */
         token1 = strtok_r(str1_cpy, ".", &save_ptr1);
         token2 = strtok_r(str2_cpy, ".", &save_ptr2);
+
+        /** Advance tokens past first part of domain */
         token1 = strtok_r(NULL, ".", &save_ptr1);
         token2 = strtok_r(NULL, ".", &save_ptr2);
+
+        /** Loop over the tokens and compare each of the parts of the domains */
         while (token1 && token2) {
             if (strcmp(token1, token2) != 0) {
                 return 0;
@@ -309,6 +321,11 @@ int match(char *str1, char *str2) {
                 token2 = strtok_r(NULL, ".", &save_ptr2);
             }
         }
+
+        /**
+         * If one of the tokens is not NULL then it must be longer than the
+         * other and therefore they do not match
+         */
         if (token1 || token2) {
             return 0;
         }
@@ -329,9 +346,9 @@ int match(char *str1, char *str2) {
  * @return      The common name
  */
 char *get_common_name(X509 *cert) {
-    X509_NAME *subj = X509_get_subject_name(cert);
+    X509_NAME *subject = X509_get_subject_name(cert);
     X509_NAME_ENTRY *entry =
-        X509_NAME_get_entry(subj, X509_NAME_entry_count(subj) - 1);
+        X509_NAME_get_entry(subject, X509_NAME_entry_count(subject) - 1);
     ASN1_STRING *domain = X509_NAME_ENTRY_get_data(entry);
     return ASN1_STRING_data(domain);
 }
