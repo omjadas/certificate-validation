@@ -17,6 +17,8 @@ int validate_cn(X509 *, char *);
 int validate_san(X509 *, char *);
 int validate_key_length(X509 *);
 int validate_key_usage(X509 *);
+int validate_ca(X509 *);
+int validate_tls(X509 *);
 char *get_common_name(X509 *);
 int match(char *, char *);
 
@@ -94,6 +96,10 @@ int validate_domain(X509 *cert, char *url) {
     return (validate_cn(cert, url) && validate_san(cert, url));
 }
 
+int validate_cn(X509 *cert, char *url) {
+    return match(get_common_name(cert), url);
+}
+
 int validate_san(X509 *cert, char *url) {
     int alt_name = X509_get_ext_by_NID(cert, NID_subject_alt_name, -1);
     X509_EXTENSION *ex = X509_get_ext(cert, alt_name);
@@ -117,18 +123,16 @@ int validate_san(X509 *cert, char *url) {
         char *token = strtok(buf, ", DNS:");
         while (token) {
             if (match(token, url) == 1) {
+                free(buf);
                 return 1;
             }
             token = strtok(NULL, ", DNS:");
         }
+        free(buf);
         return 0;
     } else {
         return 1;
     }
-}
-
-int validate_cn(X509 *cert, char *url) {
-    return match(get_common_name(cert), url);
 }
 
 int validate_key_length(X509 *cert) {
@@ -147,6 +151,12 @@ int validate_key_length(X509 *cert) {
 int validate_key_usage(X509 *cert) {
     int valid = 1;
     return valid;
+}
+
+int validate_ca(X509 *cert) {
+}
+
+int validate_tls(X509 *cert) {
 }
 
 int match(char *str1, char *str2) {
